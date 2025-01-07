@@ -33,7 +33,8 @@ class TAUKADIALDataset(Dataset):
         self.data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
 
 
-        disvoice = pd.read_parquet('/data/datasets/TAUKADIAL-24/feature/feats_train.parquet')
+        #disvoice = pd.read_parquet('/data/datasets/TAUKADIAL-24/feature/feats_train.parquet')
+        disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24/feature/feats_train.parquet')
         for i in disvoice.columns:
             if i != 'filename':
                 disvoice[i+'_mean'] = disvoice[i].apply(np.mean).fillna(0)
