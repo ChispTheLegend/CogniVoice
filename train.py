@@ -6,8 +6,8 @@ import wandb
 import logging
 import numpy as np
 from tqdm import tqdm
-#from datasets import load_metric
-import evaluate
+from datasets import load_metric
+#import evaluate
 from transformers.trainer_utils import get_last_checkpoint
 from transformers import (
     set_seed,
