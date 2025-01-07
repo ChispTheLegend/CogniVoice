@@ -44,7 +44,8 @@ class TAUKADIALDataset(Dataset):
         if subset is not None:
             self.data = self.data.iloc[subset]
 
-        self.data['audio'] = [load_wave(f'/data/datasets/TAUKADIAL-24/train/{i}', sample_rate=self.args.sample_rate).flatten() for i in self.data.tkdname]
+        #self.data['audio'] = [load_wave(f'/data/datasets/TAUKADIAL-24/train/{i}', sample_rate=self.args.sample_rate).flatten() for i in self.data.tkdname]
+        self.data['audio'] = [load_wave(f'/content/drive/MyDrive/TAUKADIAL-24/train/{i}', sample_rate=self.args.sample_rate).flatten() for i in self.data.tkdname]
         self.feature_extractor = AutoFeatureExtractor.from_pretrained(self.args.method)
 
         if 'whisper' in self.args.method:
