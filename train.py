@@ -2,12 +2,11 @@ import os
 import sys
 import json
 import torch
-import wandb
+#import wandb
 import logging
 import numpy as np
 from tqdm import tqdm
 from datasets import load_metric
-#import evaluate
 from transformers.trainer_utils import get_last_checkpoint
 from transformers import (
     set_seed,
@@ -50,7 +49,7 @@ def main():
 
 
     # Wandb
-    args.report_to = ['wandb']
+    #args.report_to = ['wandb']
     project = 'TAUKADIAL-2024'
     group = args.task
     name = args.method
@@ -72,7 +71,7 @@ def main():
         output_dir_root += '_poe'
     name += '-' + str(args.seed)
 
-    wandb.init(project=project, group=group, name=name, config=args, id=name, resume='allow')
+    #wandb.init(project=project, group=group, name=name, config=args, id=name, resume='allow')
 
     set_seed(args.seed)
 
@@ -224,7 +223,7 @@ def main():
                     for i, p in zip(eval_idx, predictions):
                         writer.write(f'{i},{p}\n')
 
-
+    '''
     wandb_log = {}
     for i, j in enumerate(scores):
         print(f'Fold: {i}, Score: {j:.4f}')
@@ -237,8 +236,9 @@ def main():
 
     with open(os.path.join(output_dir_root, 'result.json'), 'w') as f:
         json.dump(wandb_log, f, indent=4)
-
-    wandb.log(wandb_log)
+    '''
+    
+    #wandb.log(wandb_log)
 
 if __name__ == "__main__":
     main()
