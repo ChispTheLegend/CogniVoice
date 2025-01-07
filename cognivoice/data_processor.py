@@ -29,7 +29,9 @@ class TAUKADIALDataset(Dataset):
         super().__init__()
 
         self.args = args
-        self.data = pd.read_csv('/data/datasets/TAUKADIAL-24/train/groundtruth.csv')
+        #self.data = pd.read_csv('/data/datasets/TAUKADIAL-24/train/groundtruth.csv')
+        self.data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
+
 
         disvoice = pd.read_parquet('/data/datasets/TAUKADIAL-24/feature/feats_train.parquet')
         for i in disvoice.columns:
