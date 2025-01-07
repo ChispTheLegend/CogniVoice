@@ -83,7 +83,8 @@ def main():
         args.method = 'openai/' + args.method
 
     from sklearn.model_selection import StratifiedKFold
-    data = pd.read_csv('/data/datasets/TAUKADIAL-24/train/groundtruth.csv')
+    #data = pd.read_csv('/data/datasets/TAUKADIAL-24/train/groundtruth.csv') #changed to path
+    data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
     label_col = 'dx' if args.task == 'cls' else 'mmse'
     args.metric_for_best_model = 'f1' if args.task == 'cls' else 'mse'
     args.greater_is_better = True if args.task == 'cls' else False
