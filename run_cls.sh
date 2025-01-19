@@ -6,7 +6,7 @@ METHOD="${1:-whisper-tiny}"
 LR=1e-5
 WEIGHT_DECAY=1e-2
 EVAL_STEP=10
-BATCH_SIZE=4
+BATCH_SIZE=1
 EVAL_STRATEGY='steps'
 
 python train.py \
