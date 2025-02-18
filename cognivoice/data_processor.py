@@ -121,17 +121,20 @@ class TAUKADIALTestDataset(Dataset):
         super().__init__()
 
         self.args = args
-        files = os.listdir('/data/datasets/TAUKADIAL-24/test/TAUKADIAL-24/test')
+        #files = os.listdir('/data/datasets/TAUKADIAL-24/test/TAUKADIAL-24/test')
+        files = os.listdir('/content/drive/MyDrive/TAUKADIAL-24/test')
         files = [i for i in files if i.endswith('.wav')]
 
-        self.data = pd.read_parquet(f'/data/datasets/TAUKADIAL-24/feature/feats_test.parquet')
+        #self.data = pd.read_parquet(f'/data/datasets/TAUKADIAL-24/feature/feats_test.parquet')
+        self.data = pd.read_parquet(f'/content/drive/MyDrive/TAUKADIAL-24/feats_test.parquet')
         for i in self.data.columns:
             if i != 'filename':
                 self.data[i+'_mean'] = self.data[i].apply(np.mean).fillna(0)
 
         self.data['audio'] = [
             load_wave(
-                f'/data/datasets/TAUKADIAL-24/test/TAUKADIAL-24/test/{i}', 
+                #f'/data/datasets/TAUKADIAL-24/test/TAUKADIAL-24/test/{i}', 
+                f'/content/drive/MyDrive/TAUKADIAL-24/test/{i}',
                 sample_rate=self.args.sample_rate).flatten() 
             for i in self.data.filename]
         self.feature_extractor = AutoFeatureExtractor.from_pretrained(self.args.method)
@@ -158,7 +161,8 @@ class TAUKADIALTestDataset(Dataset):
         self.cn_tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
 
         # Transcribed text
-        text = pd.read_parquet('/data/datasets/TAUKADIAL-24/transcription/translation_test.parquet')
+        #text = pd.read_parquet('/data/datasets/TAUKADIAL-24/transcription/translation_test.parquet')
+        text = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24/translation_test.parquet')
         self.data = pd.merge(self.data, text, left_on='filename', right_on='file_name')
 
         text_feat = [
