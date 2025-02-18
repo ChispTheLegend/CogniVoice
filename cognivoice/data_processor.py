@@ -70,7 +70,8 @@ class TAUKADIALDataset(Dataset):
         self.cn_tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
 
         # Transcribed text
-        text = pd.read_parquet('/data/datasets/TAUKADIAL-24/transcription/translation_train.parquet')
+        #text = pd.read_parquet('/data/datasets/TAUKADIAL-24/transcription/translation_train.parquet')
+        text = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24/translation_train.parquet')
         self.data = pd.merge(self.data, text, left_on='tkdname', right_on='file_name')
 
         text_feat = [
