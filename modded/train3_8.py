@@ -4,8 +4,11 @@ import json
 import torch
 import logging
 import numpy as np
+
+# Import Neptune
 import neptune
-  # Import Neptune
+from neptune.types import File
+
 from tqdm import tqdm
 from datasets import load_metric
 from transformers.trainer_utils import get_last_checkpoint
@@ -122,6 +125,9 @@ def main():
             metrics = train_result.metrics
 
             trainer.save_model()
+
+            run[f"model/fold_{fold_id}/checkpoint"].upload(File.as_artifact(os.path.join(args.output_dir, "pytorch_model.bin")))
+          
             trainer.log_metrics("train", metrics)
             trainer.save_metrics("train", metrics)
             trainer.save_state()
