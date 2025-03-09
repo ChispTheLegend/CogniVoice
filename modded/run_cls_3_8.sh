@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "run_cls.sh started"
+
 # All of the Huggingface TrainingArguments and arguments in ./framework/training_args.py apply here
 METHOD="${1:-whisper-tiny}"
 
@@ -29,3 +31,4 @@ python train.py \
         --use_poe \
         --task cls \
         # --use_llama2 \
+        2>&1 | tee train_log.txt
