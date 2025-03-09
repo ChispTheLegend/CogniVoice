@@ -9,6 +9,8 @@ import numpy as np
 import neptune
 from neptune.types import File
 
+from google.colab import userdata
+
 from tqdm import tqdm
 from datasets import load_metric
 from transformers.trainer_utils import get_last_checkpoint
@@ -71,7 +73,8 @@ def main():
         project="chispen-workspace/TAUKADIAL2025",
         name=name,
         tags=[args.task, args.method],
-        api_token=os.environ.get("NEPTUNE_API_TOKEN")  # Replace or set via environment variable
+        #api_token=os.environ.get("NEPTUNE_API_TOKEN")  # Replace or set via environment variable
+        userdata.get('NEPTUNE_API_TOKEN')
     )
     run["parameters"] = vars(args)  # Log hyperparameters
 
