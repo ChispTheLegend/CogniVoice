@@ -18,7 +18,7 @@ export XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/lib/cuda
 
 #export NEPTUNE_API_TOKEN="your_api_token"
 
-python train.py \
+python train_debug.py \
         --neptune_api_token "$NEPTUNE_API_TOKEN" \
         --do_train --do_eval --dataloader_num_workers 2 --save_total_limit 1 --per_device_eval_batch_size 4 --load_best_model_at_end \
         --overwrite_output_dir \
