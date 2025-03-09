@@ -31,6 +31,14 @@ import neptune
 from neptune.types import File
 from google.colab import userdata
 
+#new imports
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.info(f"Environment variables: {os.environ}")
+neptune_api_token = os.environ.get('NEPTUNE_API_TOKEN')
+logging.info(f"neptune_api_token: {neptune_api_token}")
+
+
 print("all imports worked")
 
 logging.basicConfig(
@@ -90,13 +98,14 @@ def main():
 
     # Initialize Neptune
     try:
-        api_token = userdata.get("NEPTUNE_API_TOKEN")
-        print(f"Api token is: {api_token}") #add this line to see the api token
+        #api_token = userdata.get("NEPTUNE_API_TOKEN")
+        #print(f"Api token is: {api_token}") #add this line to see the api token
         run = neptune.init_run(
-            project="chispen-workspace/TAUKADIAL2025",
+            project="chispen-workspace/TAUKADIAL2025",  # Replace with your workspace/project
             name=name,
             tags=[args.task, args.method],
-            api_token=api_token,
+            #api_token=userdata.get('NEPTUNE_API_TOKEN'),
+            api_token=neptune_api_token
         )
         run["parameters"] = vars(args)  # Log hyperparameters
     except KeyError:

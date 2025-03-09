@@ -14,6 +14,8 @@ EVAL_STRATEGY='steps'
 export TF_CPP_MIN_LOG_LEVEL=3
 export XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/lib/cuda
 
+#export NEPTUNE_API_TOKEN="your_api_token"
+
 python train.py \
         --do_train --do_eval --dataloader_num_workers 2 --save_total_limit 1 --per_device_eval_batch_size 4 --load_best_model_at_end \
         --overwrite_output_dir \
@@ -31,4 +33,5 @@ python train.py \
         --use_poe \
         --task cls \
         # --use_llama2 \
+        trust_remote_code=True
         2>&1 | tee train_log.txt
