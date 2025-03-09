@@ -1,3 +1,5 @@
+print("train.py: script execution started")
+
 import os
 import sys
 import json
@@ -30,6 +32,8 @@ from transformers import (
 from cognivoice.model import Whisper, WhisperPoe
 from cognivoice.data_processor import *
 from cognivoice.training_args import AudioTrainingArguments, RemainArgHfArgumentParser
+
+print("all imports didn't crash")
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S',
