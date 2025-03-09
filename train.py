@@ -1,3 +1,5 @@
+print("train.py started")
+
 import os
 import sys
 import json
@@ -21,10 +23,18 @@ from transformers import (
     Trainer
 )
 
+import neptune
+neptune_api_token = os.environ.get('NEPTUNE_API_TOKEN')
+if not neptune_api_token:
+    logger.error("Neptune API token not found in environment variables.")
+    # Decide how to handle this: exit, run without Neptune, etc.
+    #sys.exit(1) #Example of exiting the script.
+
 from cognivoice.model import Whisper, WhisperPoe
 from cognivoice.data_processor import *
 from cognivoice.training_args import AudioTrainingArguments, RemainArgHfArgumentParser
 
+print("all imports successful")
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S',
@@ -33,6 +43,27 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message
 logger = logging.getLogger(__name__)
 
 def main():
+    #neptune setup
+    run = neptune.init(
+        project='chispen-workspace/TAUKADIAL25',  # replace with your Neptune workspace and project name
+        api_token=neptune_api_token  # Optional: you can also use NEPTUNE_API_TOKEN as an environment variable
+    )
+    
+    # Track hyperparameters
+    run['config'] = {
+        'project': project,
+        'group': group,
+        'name': name,
+        'output_dir_root': output_dir_root,
+        'method': args.method,
+        'use_disvoice': args.use_disvoice,
+        'use_metadata': args.use_metadata,
+        'use_text': args.use_text,
+        'use_llama2': args.use_llama2,
+        'use_poe': args.use_poe,
+        'seed': args.seed
+    }
+    
     # See all possible arguments in src/transformers/args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
@@ -85,6 +116,7 @@ def main():
     from sklearn.model_selection import StratifiedKFold
     #data = pd.read_csv('/data/datasets/TAUKADIAL-24/train/groundtruth.csv') #changed to path
     data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
+    data = data[:20]
     label_col = 'dx' if args.task == 'cls' else 'mmse'
     args.metric_for_best_model = 'f1' if args.task == 'cls' else 'mse'
     args.greater_is_better = True if args.task == 'cls' else False
@@ -196,6 +228,9 @@ def main():
             train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
             metrics = train_result.metrics
 
+            # Log metrics to Neptune
+            run['train/metrics'] = metrics  # Log the training metrics
+
             trainer.save_model()  # Saves the tokenizer too for easy upload
 
             trainer.log_metrics("train", metrics)
@@ -208,6 +243,16 @@ def main():
             key = 'eval_' + args.metric_for_best_model
             eval_name = f'fold_{fold_id}'
             metrics = trainer.evaluate(eval_dataset=eval_data)
+            
+            # Log eval metrics to Neptune
+            run[f'eval/{eval_name}/metrics'] = metrics  # Log the evaluation metrics
+            
+            trainer.log_metrics(eval_name, metrics)
+            trainer.save_metrics(eval_name, metrics)
+
+            scores.append(metrics[key])
+            
+            '''
             trainer.log_metrics(eval_name, metrics)
             trainer.save_metrics(eval_name, metrics)
 
@@ -223,6 +268,7 @@ def main():
                     writer.write("idx,pred\n")
                     for i, p in zip(eval_idx, predictions):
                         writer.write(f'{i},{p}\n')
+            '''
 
     '''
     wandb_log = {}
@@ -240,6 +286,15 @@ def main():
     '''
     
     #wandb.log(wandb_log)
+
+    run['final_scores'] = {
+    'mean': np.mean(scores),
+    'std': np.std(scores),
+    'max': np.max(scores),
+    'min': np.min(scores)
+    }
+    
+    run.stop()   
 
 if __name__ == "__main__":
     main()
