@@ -2,6 +2,8 @@
 
 echo "run_cls.sh started"
 
+NEPTUNE_API_TOKEN="$NEPTUNE_API_TOKEN"
+
 # All of the Huggingface TrainingArguments and arguments in ./framework/training_args.py apply here
 METHOD="${1:-whisper-tiny}"
 
@@ -17,6 +19,7 @@ export XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/lib/cuda
 #export NEPTUNE_API_TOKEN="your_api_token"
 
 python train.py \
+        --neptune_api_token "$NEPTUNE_API_TOKEN" \
         --do_train --do_eval --dataloader_num_workers 2 --save_total_limit 1 --per_device_eval_batch_size 4 --load_best_model_at_end \
         --overwrite_output_dir \
         --evaluation_strategy ${EVAL_STRATEGY} --save_strategy ${EVAL_STRATEGY} \
