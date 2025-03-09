@@ -74,7 +74,7 @@ def main():
         name=name,
         tags=[args.task, args.method],
         #api_token=os.environ.get("NEPTUNE_API_TOKEN")  # Replace or set via environment variable
-        userdata.get('NEPTUNE_API_TOKEN')
+        api_token=userdata.get('NEPTUNE_API_TOKEN')
     )
     run["parameters"] = vars(args)  # Log hyperparameters
 
