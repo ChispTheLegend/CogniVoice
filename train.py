@@ -43,7 +43,7 @@ def main():
 
     # Wandb
     args.report_to = ['wandb']
-    project = 'TAUKADIAL-2024'
+    project = 'TAUKADIAL-2025'
     group = args.task
     name = args.method
     output_dir_root = args.output_dir
