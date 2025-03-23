@@ -32,11 +32,11 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message
 
 logger = logging.getLogger(__name__)
 
-def main():
+def main(args):
     # See all possible arguments in src/transformers/args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
+    '''
     parser = RemainArgHfArgumentParser((AudioTrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -44,8 +44,11 @@ def main():
         json_file=os.path.abspath(sys.argv[1])
         args, _ = parser.parse_json_file(json_file, return_remaining_args=True) #args = arg_string, return_remaining_strings=True) #parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
+        print("ELSE")
+        print(sys.argv)
         args = parser.parse_args_into_dataclasses()[0]
     args.dataloader_num_workers = 8
+    '''
 
     # Wandb Custom rn
     args.report_to = ['wandb']
@@ -70,7 +73,12 @@ def main():
         output_dir_root += '_poe'
     name += '-' + str(args.seed)
 
+    #print(project, group, name, args)
+
     wandb.init(project=project, group=group, name=name, config=args, id=name, resume='allow')
+    #wandb.init(project=project, group=group, name=name, id=name)
+
+    print("wandb init successful")
 
     set_seed(args.seed)
 
@@ -83,22 +91,18 @@ def main():
 
     from sklearn.model_selection import StratifiedKFold
     data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
+    #data.head()
 
-    
-    
     #DEAL WITH DATA SAMPLING
-    #data = data[:20]
     disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24_feat/train/feats_train.parquet')
     # Sample the disvoice dataset
     disvoice_sampled = disvoice.sample(frac=0.1, random_state=1)
     # Extract the sampled filenames
     sampled_filenames = disvoice_sampled['filename'].unique()
     # Filter groundtruth to include only sampled filenames
-    filtered_groundtruth = groundtruth[groundtruth['filename'].isin(sampled_filenames)]
+    filtered_groundtruth = data[data['tkdname'].isin(sampled_filenames)]
     # Now use filtered_groundtruth in your training process
     data = filtered_groundtruth
-
-
     
     label_col = 'dx' if args.task == 'cls' else 'mmse'
     args.metric_for_best_model = 'f1' if args.task == 'cls' else 'mse'
@@ -208,6 +212,8 @@ def main():
                         f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
                         "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
                     )
+            
+            import pdb; pdb.set_trace()
             train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
             metrics = train_result.metrics
 
