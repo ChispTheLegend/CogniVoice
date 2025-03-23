@@ -83,12 +83,12 @@ class TAUKADIALDataset(Dataset):
         self.data['text_attention_mask'] = [i['attention_mask'] for i in text_feat]
 
         # LLAMA-2 explainations
-        self.data['pid'] = self.data.tkdname.apply(lambda x: x.split('-')[1])
-        self.data['llama2'] = self.data.pid.apply(lambda x: open(f'/data/datasets/TAUKADIAL-24/llama2/llama2_train/{x}.txt').read())
+        #self.data['pid'] = self.data.tkdname.apply(lambda x: x.split('-')[1])
+        #self.data['llama2'] = self.data.pid.apply(lambda x: open(f'/data/datasets/TAUKADIAL-24/llama2/llama2_train/{x}.txt').read())
 
-        llama2_feat = self.en_tokenizer(self.data['llama2'].tolist(), padding='max_length', max_length=256, truncation=True)
-        self.data['llama2_input_ids'] = llama2_feat['input_ids']
-        self.data['llama2_attention_mask'] = llama2_feat['attention_mask']
+        #llama2_feat = self.en_tokenizer(self.data['llama2'].tolist(), padding='max_length', max_length=256, truncation=True)
+        #self.data['llama2_input_ids'] = llama2_feat['input_ids']
+        #self.data['llama2_attention_mask'] = llama2_feat['attention_mask']
 
     def __len__(self):
         return len(self.data)
