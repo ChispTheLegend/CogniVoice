@@ -78,7 +78,7 @@ def main(args):
     wandb.init(project=project, group=group, name=name, config=args, id=name, resume='allow')
     #wandb.init(project=project, group=group, name=name, id=name)
 
-    print("wandb init successful")
+    print("WANDB INIT SUCCESSFUL")
 
     set_seed(args.seed)
 
@@ -136,7 +136,8 @@ def main(args):
             raise NotImplementedError
 
         
-        metric = load_metric("./cognivoice/metrics.py", args.task)
+        #metric = load_metric("./cognivoice/metrics.py", args.task)
+        metric = load_metric("./cognivoice/metrics.py", args.task, trust_remote_code=True)
 
         def new_compute_metrics(results):
             labels, label_mmse, sex_labels, lng_labels, pic_labels = results.label_ids
@@ -213,7 +214,9 @@ def main(args):
                         "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
                     )
             
-            import pdb; pdb.set_trace()
+            #print(self.data.columns)  # Add this in __init__ after merging data
+
+            #import pdb; pdb.set_trace()
             train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
             metrics = train_result.metrics
 
