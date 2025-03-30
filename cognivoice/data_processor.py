@@ -32,6 +32,7 @@ class TAUKADIALDataset(Dataset):
         #self.data = pd.read_csv('/data/datasets/TAUKADIAL-24/train/groundtruth.csv')
         self.data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
 
+        self.data.head()
 
         #disvoice = pd.read_parquet('/data/datasets/TAUKADIAL-24/feature/feats_train.parquet')
         disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24_feat/train/feats_train.parquet')
@@ -90,10 +91,26 @@ class TAUKADIALDataset(Dataset):
         #self.data['llama2_input_ids'] = llama2_feat['input_ids']
         #self.data['llama2_attention_mask'] = llama2_feat['attention_mask']
 
+        '''
+        llama2_files_available = os.path.exists('/data/datasets/TAUKADIAL-24/llama2/llama2_train')
+
+        if llama2_files_available:
+            self.data['pid'] = self.data.tkdname.apply(lambda x: x.split('-')[1])
+            self.data['llama2'] = self.data.pid.apply(lambda x: open(f'/data/datasets/TAUKADIAL-24/llama2/llama2_train/{x}.txt').read())
+            llama2_feat = self.en_tokenizer(self.data['llama2'].tolist(), padding='max_length', max_length=256, truncation=True)
+            self.data['llama2_input_ids'] = llama2_feat['input_ids']
+            self.data['llama2_attention_mask'] = llama2_feat['attention_mask']
+        else:
+            # If Llama 2 files are not available, set inputs to None
+            self.data['llama2_input_ids'] = None
+            self.data['llama2_attention_mask'] = None
+        '''
+
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
+        
         data = self.data.iloc[idx]
 
         age = float(data['age'])
@@ -112,8 +129,11 @@ class TAUKADIALDataset(Dataset):
             'disvoice_features': disvoice_features,
             'text_input_ids': data['text_input_ids'],
             'text_attention_mask': data['text_attention_mask'],
-            'llama2_input_ids': data['llama2_input_ids'],
-            'llama2_attention_mask': data['llama2_attention_mask'],
+            #'llama2_input_ids': data['llama2_input_ids'],
+            #'llama2_attention_mask': data['llama2_attention_mask'],
+
+            'llama2_input_ids': data.get('llama2_input_ids', None),
+            'llama2_attention_mask': data.get('llama2_attention_mask', None),
         }
         
 class TAUKADIALTestDataset(Dataset):
@@ -174,12 +194,12 @@ class TAUKADIALTestDataset(Dataset):
         self.data['text_attention_mask'] = [i['attention_mask'] for i in text_feat]
 
         # LLAMA-2 explainations
-        self.data['pid'] = self.data.filename.apply(lambda x: x.split('-')[1])
-        self.data['llama2'] = self.data.pid.apply(lambda x: open(f'/data/datasets/TAUKADIAL-24/llama2/llama2_test/{x}.txt').read())
+        #self.data['pid'] = self.data.filename.apply(lambda x: x.split('-')[1])
+        #self.data['llama2'] = self.data.pid.apply(lambda x: open(f'/data/datasets/TAUKADIAL-24/llama2/llama2_test/{x}.txt').read())
 
-        llama2_feat = self.en_tokenizer(self.data['llama2'].tolist(), padding='max_length', max_length=256, truncation=True)
-        self.data['llama2_input_ids'] = llama2_feat['input_ids']
-        self.data['llama2_attention_mask'] = llama2_feat['attention_mask']
+        #llama2_feat = self.en_tokenizer(self.data['llama2'].tolist(), padding='max_length', max_length=256, truncation=True)
+        #self.data['llama2_input_ids'] = llama2_feat['input_ids']
+        #self.data['llama2_attention_mask'] = llama2_feat['attention_mask']
 
     def __len__(self):
         return len(self.data)
@@ -201,8 +221,8 @@ class TAUKADIALTestDataset(Dataset):
             'disvoice_features': disvoice_features,
             'text_input_ids': data['text_input_ids'],
             'text_attention_mask': data['text_attention_mask'],
-            'llama2_input_ids': data['llama2_input_ids'],
-            'llama2_attention_mask': data['llama2_attention_mask'],
+            #'llama2_input_ids': data['llama2_input_ids'],
+            #'llama2_attention_mask': data['llama2_attention_mask'],
         }
 
 
