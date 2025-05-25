@@ -32,11 +32,11 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message
 
 logger = logging.getLogger(__name__)
 
-def main():
+def main(args):
     # See all possible arguments in src/transformers/args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
+    '''
     parser = RemainArgHfArgumentParser((AudioTrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -44,13 +44,15 @@ def main():
         json_file=os.path.abspath(sys.argv[1])
         args, _ = parser.parse_json_file(json_file, return_remaining_args=True) #args = arg_string, return_remaining_strings=True) #parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
+        print("ELSE")
+        print(sys.argv)
         args = parser.parse_args_into_dataclasses()[0]
     args.dataloader_num_workers = 8
+    '''
 
-
-    # Wandb
+    # Wandb Custom rn
     args.report_to = ['wandb']
-    project = 'TAUKADIAL-2024'
+    project = 'TAUKADIAL-2025'
     group = args.task
     name = args.method
     output_dir_root = args.output_dir
@@ -71,7 +73,12 @@ def main():
         output_dir_root += '_poe'
     name += '-' + str(args.seed)
 
+    #print(project, group, name, args)
+
     wandb.init(project=project, group=group, name=name, config=args, id=name, resume='allow')
+    #wandb.init(project=project, group=group, name=name, id=name)
+
+    print("WANDB INIT SUCCESSFUL")
 
     set_seed(args.seed)
 
@@ -83,7 +90,20 @@ def main():
         args.method = 'openai/' + args.method
 
     from sklearn.model_selection import StratifiedKFold
-    data = pd.read_csv('/data/datasets/TAUKADIAL-24/train/groundtruth.csv')
+    data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
+    #data.head()
+
+    #DEAL WITH DATA SAMPLING
+    disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24_feat/train/feats_train.parquet')
+    # Sample the disvoice dataset
+    disvoice_sampled = disvoice.sample(frac=0.1, random_state=1)
+    # Extract the sampled filenames
+    sampled_filenames = disvoice_sampled['filename'].unique()
+    # Filter groundtruth to include only sampled filenames
+    filtered_groundtruth = data[data['tkdname'].isin(sampled_filenames)]
+    # Now use filtered_groundtruth in your training process
+    data = filtered_groundtruth
+    
     label_col = 'dx' if args.task == 'cls' else 'mmse'
     args.metric_for_best_model = 'f1' if args.task == 'cls' else 'mse'
     args.greater_is_better = True if args.task == 'cls' else False
@@ -93,7 +113,10 @@ def main():
 
     scores = []
     for fold_id, (train_idx, eval_idx) in enumerate(tqdm(kv.split(data.drop(label_col, axis=1), data[label_col]), desc='Cross Validation')):
-        args.output_dir = os.path.join(output_dir_root, f'fold_{fold_id}')
+        #added 5/24/25, saving stuff to drive. 
+        args.output_dir = os.path.join('/content/drive/MyDrive/TAUKADIAL-24/checkpoints', args.task, args.method, f'fold_{fold_id}')
+        print(f"Saving fold {fold_id} outputs to: {args.output_dir}")
+        #args.output_dir = os.path.join(output_dir_root, f'fold_{fold_id}')
 
         # Dataset
         train_data = TAUKADIALDataset(args, subset=train_idx)
@@ -116,7 +139,8 @@ def main():
             raise NotImplementedError
 
         
-        metric = load_metric("./cognivoice/metrics.py", args.task)
+        #metric = load_metric("./cognivoice/metrics.py", args.task)
+        metric = load_metric("./cognivoice/metrics.py", args.task, trust_remote_code=True)
 
         def new_compute_metrics(results):
             labels, label_mmse, sex_labels, lng_labels, pic_labels = results.label_ids
@@ -192,10 +216,19 @@ def main():
                         f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
                         "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
                     )
+            
+            #print(self.data.columns)  # Add this in __init__ after merging data
+
+            #import pdb; pdb.set_trace()
             train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
             metrics = train_result.metrics
 
             trainer.save_model()  # Saves the tokenizer too for easy upload
+
+            #5/24/25 save final model weights to WANDB
+            wandb.save(os.path.join(args.output_dir, "pytorch_model.bin"))
+            wandb.save(os.path.join(args.output_dir, "trainer_state.json"))
+
 
             trainer.log_metrics("train", metrics)
             trainer.save_metrics("train", metrics)
