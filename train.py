@@ -93,7 +93,7 @@ def main(args):
     data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
     #data.head()
 
-    #DEAL WITH DATA SAMPLING
+    #DATA SAMPLING
     disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24_feat/train/feats_train.parquet')
     # Sample the disvoice dataset
     disvoice_sampled = disvoice.sample(frac=0.1, random_state=1)
@@ -115,6 +115,9 @@ def main(args):
     for fold_id, (train_idx, eval_idx) in enumerate(tqdm(kv.split(data.drop(label_col, axis=1), data[label_col]), desc='Cross Validation')):
         args.output_dir = os.path.join(output_dir_root, f'fold_{fold_id}')
 
+        #5.31.25 create local output directory if it doesn't exist
+        #os.makedirs(args.output_dir, exist_ok=True)
+        
         # Dataset
         train_data = TAUKADIALDataset(args, subset=train_idx)
         eval_data = TAUKADIALDataset(args, subset=eval_idx)
@@ -124,17 +127,13 @@ def main(args):
             model = AutoModelForSequenceClassification.from_pretrained(args.method)
         
         elif 'whisper' in args.method:
-
             if args.use_poe:
                 model = WhisperPoe(args)
-            
             else:
                 model = Whisper(args)
                 # model.parallelize()
-
         else:
             raise NotImplementedError
-
         
         #metric = load_metric("./cognivoice/metrics.py", args.task)
         metric = load_metric("./cognivoice/metrics.py", args.task, trust_remote_code=True)
