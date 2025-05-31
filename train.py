@@ -221,6 +221,15 @@ def main(args):
 
             trainer.save_model()  # Saves the tokenizer too for easy upload
 
+            #NEW 5.31.25 Log the saved model as a W&B artifact
+            if args.save_model_as_artifact and wandb.run is not None:
+                artifact_name = f"{wandb.run.name}_fold_{fold_id}_model"
+                artifact = wandb.Artifact(name=artifact_name, type="model")
+                # Add the entire saved model directory (includes pytorch_model.bin, config.json, etc.)
+                artifact.add_dir(args.output_dir)
+                wandb.run.log_artifact(artifact, aliases=["latest", f"fold_{fold_id}_best_model"])
+                print(f"Model saved as W&B Artifact: {artifact_name}")
+            
             trainer.log_metrics("train", metrics)
             trainer.save_metrics("train", metrics)
             trainer.save_state()
@@ -239,13 +248,23 @@ def main(args):
             logger.info('*** Predict ***')
             predictions = trainer.predict(eval_data, metric_key_prefix="predict").predictions
             predictions = np.argmax(predictions, axis=1) if args.task == 'cls' else np.squeeze(predictions)
-
+            
+            '''
             output_predict_file = os.path.join(output_dir_root, f"pred_{args.task}_fold_{fold_id}.csv")
             if trainer.is_world_process_zero():
                 with open(output_predict_file, "w") as writer:
                     writer.write("idx,pred\n")
                     for i, p in zip(eval_idx, predictions):
                         writer.write(f'{i},{p}\n')
+            '''
+            
+            #NEW 5.31.25: Log predictions as a W&B artifact
+            if args.save_model_as_artifact and wandb.run is not None and trainer.is_world_process_zero():
+                 if os.path.exists(output_predict_file):
+                    pred_artifact = wandb.Artifact(name=f"{wandb.run.name}_fold_{fold_id}_predictions", type="predictions")
+                    pred_artifact.add_file(output_predict_file)
+                    wandb.run.log_artifact(pred_artifact, aliases=["latest_predictions"])
+                    print(f"Predictions saved as W&B Artifact: {f'{wandb.run.name}_fold_{fold_id}_predictions'}")
 
 
     wandb_log = {}
@@ -261,7 +280,15 @@ def main(args):
     with open(os.path.join(output_dir_root, 'result.json'), 'w') as f:
         json.dump(wandb_log, f, indent=4)
 
+    #NEW 5.31.25: Log final results JSON as a W&B artifact
+        if args.save_model_as_artifact and wandb.run is not None:
+            result_artifact = wandb.Artifact(name=f"{wandb.run.name}_final_results", type="results")
+            result_artifact.add_file(result_json_path)
+            wandb.run.log_artifact(result_artifact)
+            print(f"Final results saved as W&B Artifact: {f'{wandb.run.name}_final_results'}")
+    
     wandb.log(wandb_log)
+    wandb.finish()
 
 if __name__ == "__main__":
     main()
