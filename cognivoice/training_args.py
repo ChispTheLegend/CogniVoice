@@ -54,6 +54,11 @@ class AudioTrainingArguments(TrainingArguments):
         },
     )
 
+    #5.31.25 NEW ARGUMENT FOR WANDB ARTIFACTS
+    save_model_as_artifact: bool = field(
+        default=False, metadata={"help": "Whether to save the trained model as a W&B artifact after each fold."}
+    )
+
     def __post_init__(self):
         super().__post_init__()
 
