@@ -200,6 +200,12 @@ def main(args):
         if args.do_train:
             # Detecting last checkpoint.
             last_checkpoint = None
+
+            #NEW 5.31.2025 > Prioritize resuming from an explicitly provided checkpoint path (from W&B download)
+            if args.resume_from_checkpoint:
+                last_checkpoint = args.resume_from_checkpoint
+                logger.info(f"Explicit checkpoint path provided, resuming training from: {last_checkpoint}")
+            
             if os.path.isdir(args.output_dir) and args.do_train and not args.overwrite_output_dir:
                 last_checkpoint = get_last_checkpoint(args.output_dir)
                 if last_checkpoint is None and len(os.listdir(args.output_dir)) > 0:
