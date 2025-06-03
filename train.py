@@ -114,7 +114,7 @@ def main(args):
 
     #print(project, group, name, args)
 
-    wandb.init(project=project, group=group, name=name, config=args, id=name, resume='allow')
+    wandb.init(project=project, group=group, name=name, config=args, id=name, resume='allow', tags=["final", args.task])
     print("WANDB INIT SUCCESSFUL")
 
     set_seed(args.seed)
