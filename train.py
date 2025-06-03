@@ -32,6 +32,46 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message
 
 logger = logging.getLogger(__name__)
 
+#6.2 Cleanup Function
+import shutil
+import glob
+def cleanup_checkpoints(output_dir, keep_final=True):
+    checkpoints = glob.glob(os.path.join(output_dir, "checkpoint-*"))
+    for ckpt in checkpoints:
+        print(f"Removing checkpoint: {ckpt}")
+        shutil.rmtree(ckpt)
+
+    if not keep_final:
+        final_model = os.path.join(output_dir, f"final_model_{name}.pt")
+        if os.path.exists(final_model):
+            os.remove(final_model)
+            print(f"Removed final model: {final_model}")
+
+#6.2 Batch Size Finder
+def find_max_batch_size(model, dataset, start=4, max_batch=128):
+    import torch
+    from torch.utils.data import DataLoader
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    batch_size = start
+    while batch_size <= max_batch:
+        try:
+            dataloader = DataLoader(dataset, batch_size=batch_size)
+            for batch in dataloader:
+                batch = {k: v.to(device) for k, v in batch.items() if isinstance(v, torch.Tensor)}
+                with torch.no_grad():
+                    model(**batch)
+            print(f"✅ Batch size {batch_size} fits.")
+            batch_size *= 2
+        except RuntimeError as e:
+            if "CUDA out of memory" in str(e):
+                print(f"❌ Batch size {batch_size} caused OOM.")
+                break
+            else:
+                raise e
+
 def main(args):
     # See all possible arguments in src/transformers/args.py
     # or by passing the --help flag to this script.
@@ -201,6 +241,11 @@ def main(args):
             metrics = train_result.metrics
 
             trainer.save_model()  # Saves the tokenizer too for easy upload
+
+            #6.2.25
+            artifact = wandb.Artifact(f"{name}-model-fold{fold_id}", type="model")
+            artifact.add_dir(args.output_dir)
+            wandb.log_artifact(artifact)
     
             trainer.log_metrics("train", metrics)
             trainer.save_metrics("train", metrics)
@@ -244,6 +289,15 @@ def main(args):
         json.dump(wandb_log, f, indent=4)
     
     wandb.log(wandb_log)
+
+    #6.2.25 Save final weights explicitly 
+    final_path = os.path.join(args.output_dir, f"final_model_{name}.pt")
+    torch.save(model.state_dict(), final_path)
+    # Upload to wandb
+    artifact = wandb.Artifact(f"{name}-final-model", type="model")
+    artifact.add_file(final_path)
+    wandb.log_artifact(artifact)
+    
     wandb.finish()
 
 if __name__ == "__main__":
