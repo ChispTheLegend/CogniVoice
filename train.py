@@ -50,7 +50,6 @@ def main(args):
     args.dataloader_num_workers = 8
     '''
 
-    # Wandb Custom rn
     args.report_to = ['wandb']
     project = 'TAUKADIAL-2025'
     group = args.task
@@ -76,8 +75,6 @@ def main(args):
     #print(project, group, name, args)
 
     wandb.init(project=project, group=group, name=name, config=args, id=name, resume='allow')
-    #wandb.init(project=project, group=group, name=name, id=name)
-
     print("WANDB INIT SUCCESSFUL")
 
     set_seed(args.seed)
@@ -114,9 +111,6 @@ def main(args):
     scores = []
     for fold_id, (train_idx, eval_idx) in enumerate(tqdm(kv.split(data.drop(label_col, axis=1), data[label_col]), desc='Cross Validation')):
         args.output_dir = os.path.join(output_dir_root, f'fold_{fold_id}')
-
-        #5.31.25 create local output directory if it doesn't exist
-        #os.makedirs(args.output_dir, exist_ok=True)
         
         # Dataset
         train_data = TAUKADIALDataset(args, subset=train_idx)
@@ -200,42 +194,14 @@ def main(args):
         if args.do_train:
             # Detecting last checkpoint.
             last_checkpoint = None
-
-            #NEW 5.31.2025 > Prioritize resuming from an explicitly provided checkpoint path (from W&B download)
-            if args.resume_from_checkpoint:
-                last_checkpoint = args.resume_from_checkpoint
-                logger.info(f"Explicit checkpoint path provided, resuming training from: {last_checkpoint}")
-            
-            if os.path.isdir(args.output_dir) and args.do_train and not args.overwrite_output_dir:
-                last_checkpoint = get_last_checkpoint(args.output_dir)
-                if last_checkpoint is None and len(os.listdir(args.output_dir)) > 0:
-                    raise ValueError(
-                        f"Output directory ({args.output_dir}) already exists and is not empty. "
-                        "Use --overwrite_output_dir to overcome."
-                    )
-                elif last_checkpoint is not None and args.resume_from_checkpoint is None:
-                    logger.info(
-                        f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
-                        "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
-                    )
             
             #print(self.data.columns)  # Add this in __init__ after merging data
 
-            #import pdb; pdb.set_trace()
             train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
             metrics = train_result.metrics
 
             trainer.save_model()  # Saves the tokenizer too for easy upload
-
-            #NEW 5.31.25 Log the saved model as a W&B artifact
-            if args.save_model_as_artifact and wandb.run is not None:
-                artifact_name = f"{wandb.run.name}_fold_{fold_id}_model"
-                artifact = wandb.Artifact(name=artifact_name, type="model")
-                # Add the entire saved model directory (includes pytorch_model.bin, config.json, etc.)
-                artifact.add_dir(args.output_dir)
-                wandb.run.log_artifact(artifact, aliases=["latest", f"fold_{fold_id}_best_model"])
-                print(f"Model saved as W&B Artifact: {artifact_name}")
-            
+    
             trainer.log_metrics("train", metrics)
             trainer.save_metrics("train", metrics)
             trainer.save_state()
@@ -263,15 +229,6 @@ def main(args):
                     for i, p in zip(eval_idx, predictions):
                         writer.write(f'{i},{p}\n')
             '''
-            
-            #NEW 5.31.25: Log predictions as a W&B artifact
-            if args.save_model_as_artifact and wandb.run is not None and trainer.is_world_process_zero():
-                 if os.path.exists(output_predict_file):
-                    pred_artifact = wandb.Artifact(name=f"{wandb.run.name}_fold_{fold_id}_predictions", type="predictions")
-                    pred_artifact.add_file(output_predict_file)
-                    wandb.run.log_artifact(pred_artifact, aliases=["latest_predictions"])
-                    print(f"Predictions saved as W&B Artifact: {f'{wandb.run.name}_fold_{fold_id}_predictions'}")
-
 
     wandb_log = {}
     for i, j in enumerate(scores):
@@ -285,13 +242,6 @@ def main(args):
 
     with open(os.path.join(output_dir_root, 'result.json'), 'w') as f:
         json.dump(wandb_log, f, indent=4)
-
-    #NEW 5.31.25: Log final results JSON as a W&B artifact
-        if args.save_model_as_artifact and wandb.run is not None:
-            result_artifact = wandb.Artifact(name=f"{wandb.run.name}_final_results", type="results")
-            result_artifact.add_file(result_json_path)
-            wandb.run.log_artifact(result_artifact)
-            print(f"Final results saved as W&B Artifact: {f'{wandb.run.name}_final_results'}")
     
     wandb.log(wandb_log)
     wandb.finish()
