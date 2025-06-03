@@ -132,14 +132,10 @@ def main(args):
 
     #DATA SAMPLING
     disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24_feat/train/feats_train.parquet')
-    # Sample the disvoice dataset
-    disvoice_sampled = disvoice.sample(frac=0.1, random_state=1)
-    # Extract the sampled filenames
-    sampled_filenames = disvoice_sampled['filename'].unique()
-    # Filter groundtruth to include only sampled filenames
-    filtered_groundtruth = data[data['tkdname'].isin(sampled_filenames)]
-    # Now use filtered_groundtruth in your training process
-    data = filtered_groundtruth
+    disvoice_sampled = disvoice.sample(frac=0.01, random_state=1) # Sample the disvoice dataset
+    sampled_filenames = disvoice_sampled['filename'].unique() # Extract the sampled filenames
+    filtered_groundtruth = data[data['tkdname'].isin(sampled_filenames)] # Filter groundtruth to include only sampled filenames
+    data = filtered_groundtruth # Now use filtered_groundtruth in your training process
     
     label_col = 'dx' if args.task == 'cls' else 'mmse'
     args.metric_for_best_model = 'f1' if args.task == 'cls' else 'mse'
