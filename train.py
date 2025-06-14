@@ -239,9 +239,9 @@ def main(args):
             trainer.save_model()  # Saves the tokenizer too for easy upload
 
             #6.2.25
-            artifact = wandb.Artifact(f"{name}-model-fold{fold_id}", type="model")
-            artifact.add_dir(args.output_dir)
-            wandb.log_artifact(artifact)
+            #artifact = wandb.Artifact(f"{name}-model-fold{fold_id}", type="model")
+            #artifact.add_dir(args.output_dir)
+            #wandb.log_artifact(artifact)
     
             trainer.log_metrics("train", metrics)
             trainer.save_metrics("train", metrics)
