@@ -128,14 +128,15 @@ def main(args):
 
     from sklearn.model_selection import StratifiedKFold
     data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
-    #data.head()
 
     #DATA SAMPLING
+    '''
     disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24_feat/train/feats_train.parquet')
     disvoice_sampled = disvoice.sample(frac=0.01, random_state=1) # Sample the disvoice dataset
     sampled_filenames = disvoice_sampled['filename'].unique() # Extract the sampled filenames
     filtered_groundtruth = data[data['tkdname'].isin(sampled_filenames)] # Filter groundtruth to include only sampled filenames
     data = filtered_groundtruth # Now use filtered_groundtruth in your training process
+    '''
     
     label_col = 'dx' if args.task == 'cls' else 'mmse'
     args.metric_for_best_model = 'f1' if args.task == 'cls' else 'mse'
