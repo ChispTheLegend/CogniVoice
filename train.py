@@ -90,6 +90,7 @@ def main(args):
     args.dataloader_num_workers = 8
     '''
 
+    # Wandb
     args.report_to = ['wandb']
     project = 'TAUKADIAL-2025'
     group = args.task
@@ -115,7 +116,6 @@ def main(args):
     #print(project, group, name, args)
 
     wandb.init(project=project, group=group, name=name, config=args, id=name, resume='allow', tags=["final", args.task])
-    print("WANDB INIT SUCCESSFUL")
 
     set_seed(args.seed)
 
@@ -128,15 +128,6 @@ def main(args):
 
     from sklearn.model_selection import StratifiedKFold
     data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')
-
-    #DATA SAMPLING
-    '''
-    disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24_feat/train/feats_train.parquet')
-    disvoice_sampled = disvoice.sample(frac=0.01, random_state=1) # Sample the disvoice dataset
-    sampled_filenames = disvoice_sampled['filename'].unique() # Extract the sampled filenames
-    filtered_groundtruth = data[data['tkdname'].isin(sampled_filenames)] # Filter groundtruth to include only sampled filenames
-    data = filtered_groundtruth # Now use filtered_groundtruth in your training process
-    '''
     
     label_col = 'dx' if args.task == 'cls' else 'mmse'
     args.metric_for_best_model = 'f1' if args.task == 'cls' else 'mse'
@@ -166,8 +157,7 @@ def main(args):
         else:
             raise NotImplementedError
         
-        #metric = load_metric("./cognivoice/metrics.py", args.task)
-        metric = load_metric("./cognivoice/metrics.py", args.task, trust_remote_code=True)
+        metric = load_metric("./cognivoice/metrics.py", args.task, trust_remote_code=True) #metric = load_metric("./cognivoice/metrics.py", args.task)
 
         def new_compute_metrics(results):
             labels, label_mmse, sex_labels, lng_labels, pic_labels = results.label_ids
@@ -231,18 +221,22 @@ def main(args):
         if args.do_train:
             # Detecting last checkpoint.
             last_checkpoint = None
-            
-            #print(self.data.columns)  # Add this in __init__ after merging data
-
+            if os.path.isdir(args.output_dir) and args.do_train and not args.overwrite_output_dir:
+                last_checkpoint = get_last_checkpoint(args.output_dir)
+                if last_checkpoint is None and len(os.listdir(args.output_dir)) > 0:
+                    raise ValueError(
+                        f"Output directory ({args.output_dir}) already exists and is not empty. "
+                        "Use --overwrite_output_dir to overcome."
+                    )
+                elif last_checkpoint is not None and args.resume_from_checkpoint is None:
+                    logger.info(
+                        f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
+                        "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
+                    )
             train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
             metrics = train_result.metrics
 
             trainer.save_model()  # Saves the tokenizer too for easy upload
-
-            #6.2.25
-            #artifact = wandb.Artifact(f"{name}-model-fold{fold_id}", type="model")
-            #artifact.add_dir(args.output_dir)
-            #wandb.log_artifact(artifact)
     
             trainer.log_metrics("train", metrics)
             trainer.save_metrics("train", metrics)
@@ -263,14 +257,12 @@ def main(args):
             predictions = trainer.predict(eval_data, metric_key_prefix="predict").predictions
             predictions = np.argmax(predictions, axis=1) if args.task == 'cls' else np.squeeze(predictions)
             
-            '''
             output_predict_file = os.path.join(output_dir_root, f"pred_{args.task}_fold_{fold_id}.csv")
             if trainer.is_world_process_zero():
                 with open(output_predict_file, "w") as writer:
                     writer.write("idx,pred\n")
                     for i, p in zip(eval_idx, predictions):
                         writer.write(f'{i},{p}\n')
-            '''
 
     wandb_log = {}
     for i, j in enumerate(scores):
