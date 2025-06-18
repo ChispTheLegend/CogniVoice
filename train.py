@@ -181,7 +181,7 @@ def main(args):
                 
                 # Determine the model file path within the downloaded artifact directory
                 # If your artifact is just the .pt file:
-                model_file_in_artifact = os.path.join(artifact_dir, f"final_model_{base_name.split('-')[0]}.pt") # Adjust based on how you saved
+                model_file_in_artifact = os.path.join(artifact_dir, f"final_model_{name.split('-')[0]}.pt") # Adjust based on how you saved
                 
                 # If the artifact contains a full Hugging Face Trainer checkpoint structure (e.g., a 'checkpoint-XYZ' folder with pytorch_model.bin)
                 # You might need to change this to load from the artifact_dir directly if it's an HF checkpoint.
