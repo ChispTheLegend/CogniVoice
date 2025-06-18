@@ -54,13 +54,18 @@ class AudioTrainingArguments(TrainingArguments):
         },
     )
 
-    #5.31.25 NEW ARGUMENT FOR WANDB ARTIFACTS
+    # 5.31 NEW ARGUMENT FOR WANDB ARTIFACTS
     save_model_as_artifact: bool = field(
         default=False, metadata={"help": "Whether to save the trained model as a W&B artifact after each fold."}
     )
     resume_from_wandb_artifact: Optional[str] = field(
         default=None,
         metadata={"help": "WandB artifact path (e.g., 'username/project/artifact_name:version') to resume training from. If provided, the artifact will be downloaded and used as the initial checkpoint."},
+    )
+    # 6.17 NEW ARGUMENT FOR WANDB RUN RESUMING
+    wandb_run_id: Optional[str] = field(
+        default=None,
+        metadata={"help": "The W&B run ID to resume. If provided, wandb.init will attempt to resume this specific run."}
     )
 
     def __post_init__(self):
