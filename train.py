@@ -296,7 +296,7 @@ def main(args):
 
             #6.18 modded last checkpoint detection
             if last_checkpoint_path is None and os.path.isdir(args.output_dir) and not args.overwrite_output_dir:
-            temp_local_checkpoint = get_last_checkpoint(args.output_dir)
+              temp_local_checkpoint = get_last_checkpoint(args.output_dir)
             if temp_local_checkpoint:
                 last_checkpoint_path = temp_local_checkpoint
                 logger.info(f"Found local checkpoint at {last_checkpoint_path}. Using this for resuming.")
