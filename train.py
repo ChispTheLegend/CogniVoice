@@ -132,6 +132,9 @@ def main(args):
 
     set_seed(args.seed)
 
+    # 6.18 Initialize W&B API (Crucial for fetching artifacts outside the current run's direct logs)
+    api = wandb.Api()
+
     # Format HF model names
     if args.method == 'wav2vec':
         args.method = 'facebook/' + args.method
@@ -233,24 +236,100 @@ def main(args):
         # model.load_state_dict(ckpt)
         if args.do_train:
             # Detecting last checkpoint.
-            last_checkpoint = None
-            if os.path.isdir(args.output_dir) and args.do_train and not args.overwrite_output_dir:
-                last_checkpoint = get_last_checkpoint(args.output_dir)
-                if last_checkpoint is None and len(os.listdir(args.output_dir)) > 0:
-                    raise ValueError(
-                        f"Output directory ({args.output_dir}) already exists and is not empty. "
-                        "Use --overwrite_output_dir to overcome."
-                    )
-                elif last_checkpoint is not None and args.resume_from_checkpoint is None:
-                    logger.info(
-                        f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
-                        "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
-                    )
+            
+            # --- NEW BLOCK FOR W&B ARTIFACT LOADING ---
+            last_checkpoint_path = None
+            if resume_id:
+                logger.info(f"Attempting to restore checkpoint from W&B Artifact for run ID: {resume_id}")
+                try:
+                    # Find the run we are trying to resume from
+                    # Use wandb.run.entity and wandb.run.project for current run context,
+                    # or pass them through args if they are consistent.
+                    run_to_resume_from = api.run(f"{run.entity}/{run.project}/{resume_id}") # Use the run object initialized earlier
+    
+                    # Search for checkpoint artifacts logged by this specific run
+                    # The artifact name should be consistent for a fold's checkpoints.
+                    # Example naming: "model-checkpoint-fold-0-v0", "model-checkpoint-fold-0-v1", etc.
+                    # Or you could log a single "latest" alias that gets updated.
+    
+                    # Let's assume you will log artifacts named "checkpoint-fold_X-step_Y"
+                    # We need to find the latest one for the current fold.
+                    
+                    # A more robust way to get the latest by iterating, as there's no direct ":latest" alias for *all* checkpoints
+                    # (only for the overall collection or if you explicitly alias it).
+                    
+                    # Filter for artifacts of type 'model-checkpoint' relevant to this fold
+                    found_artifacts = []
+                    for art in run_to_resume_from.logged_artifacts():
+                        # Match based on artifact type and a name pattern for the fold
+                        if art.type == "model-checkpoint" and f"checkpoint-fold_{fold_id}" in art.name:
+                            found_artifacts.append(art)
+                    
+                    if found_artifacts:
+                        # Sort by version (highest version is latest) or by creation time
+                        found_artifacts.sort(key=lambda x: x.version, reverse=True) # Assuming v0, v1, v2...
+                        latest_checkpoint_artifact = found_artifacts[0]
+                        
+                        logger.info(f"Found latest checkpoint artifact: {latest_checkpoint_artifact.name}")
+                        
+                        # Create a temporary directory to download the artifact to
+                        # This will ensure it doesn't conflict with other runs/folds
+                        temp_download_dir = os.path.join(args.output_dir, f"wandb_checkpoint_download_fold_{fold_id}")
+                        os.makedirs(temp_download_dir, exist_ok=True)
+    
+                        artifact_dir = latest_checkpoint_artifact.download(root=temp_download_dir)
+                        logger.info(f"Checkpoint artifact downloaded to: {artifact_dir}")
+    
+                        # The Trainer's get_last_checkpoint needs to find the actual checkpoint folder
+                        # inside the downloaded artifact directory.
+                        last_checkpoint_path = get_last_checkpoint(artifact_dir)
+                        
+                        if last_checkpoint_path is None:
+                            logger.warning(f"No valid checkpoint sub-directory found inside downloaded artifact: {artifact_dir}")
+                            # If no valid checkpoint is found in artifact, it will start training from scratch.
+                    else:
+                        logger.info(f"No 'model-checkpoint' artifacts found for run {resume_id} and fold {fold_id}. Starting from scratch.")
+    
+                except wandb.errors.CommError as e:
+                    logger.warning(f"Could not retrieve W&B run or artifacts for ID {resume_id}: {e}. Starting from scratch.")
+            # --- END NEW BLOCK FOR W&B ARTIFACT LOADING ---
+
+            #6.18 modded last checkpoint detection
+            if last_checkpoint_path is None and os.path.isdir(args.output_dir) and not args.overwrite_output_dir:
+            temp_local_checkpoint = get_last_checkpoint(args.output_dir)
+            if temp_local_checkpoint:
+                last_checkpoint_path = temp_local_checkpoint
+                logger.info(f"Found local checkpoint at {last_checkpoint_path}. Using this for resuming.")
+            elif len(os.listdir(args.output_dir)) > 0:
+                 raise ValueError(
+                     f"Output directory ({args.output_dir}) already exists and is not empty. "
+                     "Use --overwrite_output_dir to overcome."
+                 )
+            
             train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
             metrics = train_result.metrics
 
             trainer.save_model()  # Saves the tokenizer too for easy upload
-    
+
+            # --- NEW BLOCK FOR LOGGING CHECKPOINTS AS ARTIFACTS ---
+            # Get the path to the latest checkpoint saved by the Trainer
+            current_fold_output_dir = os.path.join(output_dir_root, f'fold_{fold_id}') # Ensure this is the actual output dir
+            latest_trainer_checkpoint = get_last_checkpoint(current_fold_output_dir)
+            
+            if latest_trainer_checkpoint and trainer.is_world_process_zero():
+                # Create a unique name for the artifact (e.g., including step and fold_id)
+                artifact_name = f"checkpoint-fold_{fold_id}-step_{wandb.run.step}"
+                checkpoint_artifact = wandb.Artifact(
+                    artifact_name,
+                    type="model-checkpoint",
+                    description=f"Trainer checkpoint for fold {fold_id} at step {wandb.run.step}"
+                )
+                checkpoint_artifact.add_dir(latest_trainer_checkpoint) # Add the entire checkpoint directory
+                wandb.log_artifact(checkpoint_artifact, aliases=["latest-fold-checkpoint", f"latest-fold-{fold_id}"]) # Add aliases
+                logger.info(f"Logged checkpoint artifact: {checkpoint_artifact.name}")
+            # --- END NEW BLOCK FOR LOGGING CHECKPOINTS AS ARTIFACTS ---
+
+            
             trainer.log_metrics("train", metrics)
             trainer.save_metrics("train", metrics)
             trainer.save_state()
