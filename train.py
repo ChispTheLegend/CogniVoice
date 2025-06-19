@@ -113,22 +113,13 @@ def main(args):
         output_dir_root += '_poe'
     run_name = name + '-' + str(args.seed) if not args.wandb_run_id else name # Name for W&B display #name += '-' + str(args.seed)
 
-    # 6.17 initialize, core change for Wandb run resumption
-    wandb_resume_mode = "allow" # Default to 'allow' for flexibility
-    if args.wandb_run_id:
-        # If a specific run ID is provided, assume we *must* resume it
-        wandb_resume_mode = "must"
-        logger.info(f"Attempting to resume W&B run with ID: {args.wandb_run_id}, mode: '{wandb_resume_mode}'")
-    else:
-        logger.info(f"Initializing a new W&B run (or allowing resume if ID {run_name} exists), mode: '{wandb_resume_mode}'")
-
     wandb.init(
         project=project,
         group=group,
         name=run_name, # This name is primarily for display in the W&B UI
         config=args,
         id=args.wandb_run_id if args.wandb_run_id else None, # Pass the explicit ID if provided
-        resume=wandb_resume_mode,
+        resume="allow",
         tags=["final", args.task]
     )
     set_seed(args.seed)
