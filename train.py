@@ -306,7 +306,7 @@ def main(args):
                      "Use --overwrite_output_dir to overcome."
                  )
             
-            train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
+            train_result = trainer.train(resume_from_checkpoint=last_checkpoint_path)
             metrics = train_result.metrics
 
             trainer.save_model()  # Saves the tokenizer too for easy upload
