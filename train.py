@@ -90,8 +90,12 @@ def main(args):
     args.dataloader_num_workers = 8
     '''
 
-    # Wandb
+    # 6.18 Wandb resume logic
+    WANDB_RUN_ID_ENV = os.environ.get("WANDB_RUN_ID")
+    resume_id = WANDB_RUN_ID_ENV if WANDB_RUN_ID_ENV else (args.wandb_run_id if hasattr(args, 'wandb_run_id') else None)
+    
     args.report_to = ['wandb']
+
     project = 'TAUKADIAL-2025'
     group = args.task
     name = args.method
@@ -111,17 +115,21 @@ def main(args):
     if args.use_poe:
         name += '_poe'
         output_dir_root += '_poe'
-    run_name = name + '-' + str(args.seed) if not args.wandb_run_id else name # Name for W&B display #name += '-' + str(args.seed)
+    name += '-' + str(args.seed)
 
-    wandb.init(
+    run = wandb.init(
         project=project,
         group=group,
-        name=run_name, # This name is primarily for display in the W&B UI
+        name=name, 
         config=args,
-        id=args.wandb_run_id if args.wandb_run_id else None, # Pass the explicit ID if provided
+        id=resume_id,
         resume="allow",
         tags=["final", args.task]
     )
+
+    args.wandb_run_id = run.id
+    logger.info(f"Wandb run initialized with ID: {run.id}, Name: {run.name}")
+
     set_seed(args.seed)
 
     # Format HF model names
@@ -161,67 +169,6 @@ def main(args):
                 # model.parallelize()
         else:
             raise NotImplementedError
-
-        # 6.17.25 LOAD WEIGHTS FROM WANDB ARTIFACT IF SPECIFIED (pre-training initialization) ---
-        # This is for warm-starting from a *specific model checkpoint artifact*, which might be from a different run.
-        if args.resume_from_wandb_artifact:
-            logger.info(f"Downloading model from W&B artifact: {args.resume_from_wandb_artifact}")
-            try:
-                artifact = wandb.use_artifact(args.resume_from_wandb_artifact, type='model')
-                artifact_dir = artifact.download()
-                
-                # Determine the model file path within the downloaded artifact directory
-                # If your artifact is just the .pt file:
-                model_file_in_artifact = os.path.join(artifact_dir, f"final_model_{name.split('-')[0]}.pt") # Adjust based on how you saved
-                
-                # If the artifact contains a full Hugging Face Trainer checkpoint structure (e.g., a 'checkpoint-XYZ' folder with pytorch_model.bin)
-                # You might need to change this to load from the artifact_dir directly if it's an HF checkpoint.
-                # Example: If artifact_dir is '/wandb/artifacts/model-v0' and it contains 'checkpoint-100/pytorch_model.bin'
-                # then model = AutoModelForSequenceClassification.from_pretrained(os.path.join(artifact_dir, 'checkpoint-100'))
-                
-                if os.path.exists(model_file_in_artifact):
-                    loaded_state_dict = torch.load(model_file_in_artifact, map_location='cpu')
-                    model.load_state_dict(loaded_state_dict, strict=False)
-                    logger.info(f"Successfully loaded weights from {model_file_in_artifact}")
-                else:
-                    # Fallback for HF Trainer checkpoints
-                    logger.warning(f"Did not find expected .pt file: {model_file_in_artifact}. Attempting to load as HF Trainer checkpoint.")
-                    try:
-                        # Find a checkpoint folder if the artifact is a full HF Trainer save
-                        checkpoint_folders = [d for d in os.listdir(artifact_dir) if d.startswith("checkpoint-") and os.path.isdir(os.path.join(artifact_dir, d))]
-                        if checkpoint_folders:
-                            latest_checkpoint_folder = os.path.join(artifact_dir, sorted(checkpoint_folders, key=lambda x: int(x.split('-')[1]))[-1])
-                            logger.info(f"Loading HF model from checkpoint folder: {latest_checkpoint_folder}")
-                            # For HF models, load using from_pretrained from the folder
-                            if args.method == 'wav2vec':
-                                model = AutoModelForSequenceClassification.from_pretrained(latest_checkpoint_folder)
-                            elif 'whisper' in args.method:
-                                if args.use_poe:
-                                    # WhisperPoe needs to be re-initialized and then state_dict loaded.
-                                    # This is more complex if WhisperPoe is not directly compatible with HF from_pretrained.
-                                    # For now, let's assume if it's a full HF checkpoint, the model type is simple.
-                                    # You'd likely load the base Whisper part and then rebuild Poe.
-                                    logger.error("Loading WhisperPoe from full HF checkpoint folder is more complex, requires specific WhisperPoe loading logic.")
-                                    sys.exit(1)
-                                else:
-                                    # For Whisper, you'd typically load the HF model and processor
-                                    # from_pretrained the checkpoint folder.
-                                    model = Whisper.from_pretrained(latest_checkpoint_folder) # Assuming Whisper class has from_pretrained
-                                    # Note: Your Whisper class might not have a .from_pretrained method.
-                                    # If not, you'd load the base HF model first, then load your custom model's state_dict.
-                                    # E.g., base_model = AutoModelForSpeechSeq2Seq.from_pretrained(latest_checkpoint_folder)
-                                    #       model = Whisper(args) # Re-initialize your custom model
-                                    #       model.model.load_state_dict(base_model.state_dict()) # Load into the base part
-                            logger.info(f"Successfully loaded model from Hugging Face checkpoint in artifact.")
-                        else:
-                            raise FileNotFoundError(f"No .pt file or checkpoint folder found in artifact {artifact_dir}")
-                    except Exception as inner_e:
-                        logger.error(f"Failed to load as HF Trainer checkpoint: {inner_e}")
-                        sys.exit(1)
-            except Exception as e:
-                logger.error(f"Failed to load model weights from W&B artifact {args.resume_from_wandb_artifact}: {e}")
-                sys.exit(1)
-        # --- END WANDB ARTIFACT LOADING ---
         
         metric = load_metric("./cognivoice/metrics.py", args.task, trust_remote_code=True) #metric = load_metric("./cognivoice/metrics.py", args.task)
 
