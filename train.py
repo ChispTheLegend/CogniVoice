@@ -90,9 +90,8 @@ def main(args):
     args.dataloader_num_workers = 8
     '''
 
-    # 6.18 Wandb resume logic
-    WANDB_RUN_ID_ENV = os.environ.get("WANDB_RUN_ID")
-    resume_id = WANDB_RUN_ID_ENV if WANDB_RUN_ID_ENV else (args.wandb_run_id if hasattr(args, 'wandb_run_id') else None)
+    # 6.19 if wandb_run_id is provided within training args, else resume_id = None. 
+    resume_id = args.wandb_run_id
     
     args.report_to = ['wandb']
 
