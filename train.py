@@ -236,32 +236,57 @@ def main(args):
         # model.load_state_dict(ckpt)
         if args.do_train:
             # Detecting last checkpoint.
-            #WANDB LOADING 6.19
+            
+            # --- Checkpoint Resuming Logic: W&B First, then Local Fallback ---
             last_checkpoint = None
-            if os.path.isdir(args.output_dir) and args.do_train and not args.overwrite_output_dir:
-                
-                # Use the trusted get_last_checkpoint utility to find the latest checkpoint.
-                # This is the single source of truth for resuming.
-                last_checkpoint = get_last_checkpoint(args.output_dir)
-            
-                if last_checkpoint is not None:
-                    logger.info(
-                        f"Checkpoint detected at {last_checkpoint}. Resuming training from this point. "
-                        "To train from scratch, use the `--overwrite_output_dir` flag."
-                    )
-                elif len(os.listdir(args.output_dir)) > 0:
-                    # This condition is important: the directory exists and has files, but none are a valid checkpoint.
-                    # This prevents accidental training over existing data that isn't a checkpoint.
-                    raise ValueError(
-                        f"Output directory ({args.output_dir}) already exists and is not empty but contains no valid checkpoint. "
-                        "Please clear the directory or use --overwrite_output_dir."
-                    )
-                # If the directory is empty, last_checkpoint remains None, and training starts from scratch.
-            
-            # The `trainer.train` call remains the same. It will correctly handle
-            # `resume_from_checkpoint=None` (start fresh) or a valid path (resume).
-            train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
-            
+        
+            # 1. PRIMARY: Attempt to resume from a W&B Artifact if a resume_id is provided.
+            if resume_id:
+                logger.info(f"Resume ID '{resume_id}' provided. Attempting to download checkpoint from W&B Artifacts.")
+                try:
+                    # Construct the name of the artifact we expect for this fold
+                    # The alias points to the specific version we want (e.g., the latest)
+                    artifact_name = f"{run.entity}/{run.project}/{run.name}:latest-fold-{fold_id}"
+                    
+                    # Use the 'use_artifact' method which is simpler than the API for this case
+                    checkpoint_artifact = run.use_artifact(artifact_name)
+                    
+                    # Define a local directory to download the artifact to
+                    artifact_dir = os.path.join(args.output_dir, "wandb_artifact")
+                    os.makedirs(artifact_dir, exist_ok=True)
+        
+                    logger.info(f"Downloading artifact '{artifact_name}' to '{artifact_dir}'...")
+                    # Download the artifact contents to the specified directory
+                    checkpoint_artifact.download(root=artifact_dir)
+                    logger.info("Artifact download complete.")
+        
+                    # The Trainer needs the path to the actual checkpoint *inside* the downloaded directory
+                    last_checkpoint = get_last_checkpoint(artifact_dir)
+                    if last_checkpoint:
+                        logger.info(f"Successfully found checkpoint in downloaded artifact: {last_checkpoint}")
+                    else:
+                        logger.warning(f"Artifact was downloaded, but no valid checkpoint was found inside '{artifact_dir}'.")
+        
+                except wandb.errors.CommError as e:
+                    logger.warning(f"Could not download W&B artifact '{artifact_name}'. This is expected on the first run of a fold. Error: {e}")
+                    last_checkpoint = None # Ensure we proceed to local check
+        
+            # 2. FALLBACK: If no W&B checkpoint was found, check the local filesystem.
+            # This is useful if a run was interrupted and is being restarted in the same session.
+            if last_checkpoint is None:
+                logger.info("No W&B checkpoint found or used. Checking local filesystem for a checkpoint.")
+                if os.path.isdir(args.output_dir) and not args.overwrite_output_dir:
+                    local_ckpt = get_last_checkpoint(args.output_dir)
+                    if local_ckpt:
+                        logger.info(f"Found local checkpoint at {local_ckpt}. Resuming from there.")
+                        last_checkpoint = local_ckpt
+                    elif len(os.listdir(args.output_dir)) > 0:
+                         logger.warning(
+                             f"Output directory ({args.output_dir}) is not empty but has no checkpoint. "
+                             "Files may be overwritten unless you use --overwrite_output_dir."
+                         )
+            # --- Start or Resume Training ---
+            # `last_checkpoint` is now either a path to the downloaded artifact's checkpoint, or a path to a local checkpoint, or None.
             train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
             metrics = train_result.metrics
 
