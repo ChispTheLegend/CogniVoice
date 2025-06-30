@@ -207,14 +207,62 @@ def main(args):
             return metrics
 
         def compute_metrics(p: EvalPrediction):
-            # labels, label_mmse, sex_labels, lng_labels, pic_labels = p.label_ids
-            # breakpoint()
-            preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
-            preds = np.argmax(preds, axis=1) if args.task == 'cls' else np.squeeze(preds)
-            result = metric.compute(predictions=preds, references=p.label_ids)
-            result["combined_score"] = np.mean(list(result.values())).item()
+            #6.30.25 evaluation results with all experts
+            # Initialize a dictionary to store all evaluation results
+            results = {}
 
-            return result
+            # p.predictions is now the dictionary returned by your modified WhisperPoe.forward()
+            main_logits = p.predictions['logits'] # This holds the final combined PoE logits or multi-feature logits
+            individual_expert_logits_dict = p.predictions['individual_expert_logits'] # Dictionary of raw logits from each expert
+            references = p.label_ids # Ground truth labels
+
+            # Define how to get predictions and the metric suffix based on the task type
+            if args.task == 'cls':
+                # For classification, we take the argmax (the class with highest score)
+                pred_processing_func = lambda x: np.argmax(x, axis=1)
+                metric_suffix = "f1" # Assuming your 'metric' object (from evaluate.load) calculates f1
+            else: # args.task == 'reg'
+                # For regression, we typically just squeeze the output (remove single-dim axes)
+                pred_processing_func = lambda x: np.squeeze(x)
+                metric_suffix = "mse" # Assuming your 'metric' object calculates mse
+
+            # 1. Evaluate the Main Combined PoE / Model Output
+            # This is the primary result the Trainer will focus on
+            combined_preds = pred_processing_func(main_logits)
+            main_metrics = metric.compute(predictions=combined_preds, references=references)
+            
+            # Prefix keys for clarity in logs (e.g., 'combined_poe_f1')
+            for k, v in main_metrics.items():
+                results[f"combined_poe_{k}"] = v
+            
+            # Add a general 'combined_score' if your metric.compute returns multiple values
+            if isinstance(main_metrics, dict) and len(main_metrics) > 0:
+                results["combined_poe_avg_metric"] = np.mean(list(main_metrics.values())).item()
+            elif not isinstance(main_metrics, dict): # If metric.compute returns a single float directly
+                results[f"combined_poe_{metric_suffix}"] = main_metrics # Use the determined suffix
+
+
+            # 2. Evaluate Each Individual Expert's Output
+            for expert_name, expert_raw_logits in individual_expert_logits_dict.items():
+                if expert_raw_logits is not None: # Check if this expert was actually active/returned
+                    # Ensure logits are on CPU and converted to numpy if they're still tensors
+                    expert_raw_logits_np = expert_raw_logits.detach().cpu().numpy()
+
+                    expert_preds = pred_processing_func(expert_raw_logits_np)
+                    expert_metrics = metric.compute(predictions=expert_preds, references=references)
+
+                    # Prefix keys with expert name (e.g., 'audio_only_f1')
+                    for k, v in expert_metrics.items():
+                        results[f"{expert_name}_{k}"] = v
+                    
+                    # Add a general 'combined_score' for each individual expert if applicable
+                    if isinstance(expert_metrics, dict) and len(expert_metrics) > 0:
+                        results[f"{expert_name}_avg_metric"] = np.mean(list(expert_metrics.values())).item()
+                    elif not isinstance(expert_metrics, dict):
+                        results[f"{expert_name}_{metric_suffix}"] = expert_metrics # Use the determined suffix
+                        
+            return results
+            #END CHANGES
 
         # Train
         # args.max_steps = 3
