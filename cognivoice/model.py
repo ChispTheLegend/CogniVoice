@@ -383,8 +383,8 @@ class WhisperPoe(nn.Module):
             else:
                 loss = loss_fct(logits.view(-1, self.config.num_labels), labels.view(-1))
 
-       #6.27.25 forward method return dict with raw logits from each expert
-       individual_expert_raw_logits = {}
+        #6.27.25 forward method return dict with raw logits from each expert
+        individual_expert_raw_logits = {}
 
         # 1. Multi-feature Expert's Logits (from the concatenated features)
         # 'logits' already holds this from its previous calculation
