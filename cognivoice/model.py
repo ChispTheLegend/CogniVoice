@@ -400,6 +400,18 @@ class WhisperPoe(nn.Module):
         # The 'final_output' variable, at the point after audio processing
         # but before concatenation with other modalities, represents the audio feature.
         # We'll re-calculate its specific classifier output here to ensure we get its raw logits.
+        
+               
+        # ---- START DEBUG PRINTS ----
+        print(f"DEBUG: Shape of hidden_states: {hidden_states.shape}")
+        
+        if hasattr(self.audio_model, 'projector') and isinstance(self.audio_model.projector, torch.nn.Linear):
+            print(f"DEBUG: self.audio_model.projector.in_features: {self.audio_model.projector.in_features}")
+        else:
+            print(f"DEBUG: self.audio_model.projector is not a standard Linear layer or not initialized.")
+            
+        print(f"DEBUG: self.audio_model.config.d_model: {self.audio_model.config.d_model}")
+        # ---- END DEBUG PRINTS ----       
         audio_features_for_expert = self.audio_model.projector(hidden_states).mean(dim=1)
         individual_expert_raw_logits['audio_only'] = self.audio_only_classifier(audio_features_for_expert)
 
