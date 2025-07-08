@@ -35,6 +35,19 @@ class TAUKADIALDataset(Dataset):
 
         disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24_feat/train/feats_train.parquet') #/data/datasets/TAUKADIAL-24/feature/feats_train.parquet
         print(f"Disvoice features loaded shape: {disvoice.shape}")
+
+        # --- ADD THIS BLOCK ---
+        for col_name in disvoice_feature_names: # Iterate through the actual feature names
+            # Check the original column which contains lists/arrays
+            # The actual column name in disvoice DF will be 'static-Articulation', etc.
+            if col_name in disvoice.columns:
+                # Filter for rows where the value in the column is a list/array AND its length is 0
+                empty_list_mask = disvoice[col_name].apply(lambda x: isinstance(x, (list, np.ndarray)) and len(x) == 0)
+                if empty_list_mask.any():
+                    count_empty = empty_list_mask.sum()
+                    print(f"WARNING: Disvoice column '{col_name}' has {count_empty} entries with empty feature lists/arrays.")
+                    print(f"  Filenames for empty '{col_name}': {disvoice.loc[empty_list_mask, 'filename'].tolist()}")
+        # --- END ADDED BLOCK ---
         
         for i in disvoice.columns:
             if i != 'filename':
