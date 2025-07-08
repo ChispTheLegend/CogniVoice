@@ -158,7 +158,7 @@ def main(args):
         print(f"Train samples in fold: {len(train_index)}")
         print(f"Validation samples in fold: {len(val_index)}")
         # If classification, also check class distribution in fold
-        # print(f"Validation class distribution: {np.bincount(y[val_index])}")
+        print(f"Validation class distribution: {np.bincount(y[val_index])}")
         
         args.output_dir = os.path.join(output_dir_root, f'fold_{fold_id}')
         
