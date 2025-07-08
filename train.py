@@ -207,6 +207,16 @@ def main(args):
             return metrics
 
         def compute_metrics(p: EvalPrediction):
+            # labels, label_mmse, sex_labels, lng_labels, pic_labels = p.label_ids
+            # breakpoint()
+            preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
+            preds = np.argmax(preds, axis=1) if args.task == 'cls' else np.squeeze(preds)
+            result = metric.compute(predictions=preds, references=p.label_ids)
+            result["combined_score"] = np.mean(list(result.values())).item()
+
+            return result
+        
+        '''
             #6.30.25 evaluation results with all experts
             # Initialize a dictionary to store all evaluation results
             results = {}
@@ -263,6 +273,7 @@ def main(args):
                         
             return results
             #END CHANGES
+        '''
 
         # Train
         # args.max_steps = 3
@@ -355,7 +366,7 @@ def main(args):
                 checkpoint_artifact.add_dir(latest_trainer_checkpoint) # Add the entire checkpoint directory
                 wandb.log_artifact(checkpoint_artifact, aliases=["latest-fold-checkpoint", f"latest-fold-{fold_id}"]) # Add aliases
                 logger.info(f"Logged checkpoint artifact: {checkpoint_artifact.name}")
-            # --- END NEW BLOCK FOR LOGGING CHECKPOINTS AS ARTIFACTS ---
+            # --- END NEW BLOCK ---
 
             
             trainer.log_metrics("train", metrics)
