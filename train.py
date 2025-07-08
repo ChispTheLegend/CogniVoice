@@ -154,12 +154,13 @@ def main(args):
     scores = []
     for fold_id, (train_idx, eval_idx) in enumerate(tqdm(kv.split(data.drop(label_col, axis=1), data[label_col]), desc='Cross Validation')):
         #6.8.25 debug statements
-        print(f"Processing fold {fold + 1}/{kf.n_splits}")
-        print(f"Train samples in fold: {len(train_index)}")
-        print(f"Validation samples in fold: {len(val_index)}")
+        print(f"Processing fold {fold_id + 1}/{kv.n_splits}") # Use kv.n_splits for the total
+        print(f"Train samples in fold: {len(train_idx)}") # Use train_idx from the current loop
+        print(f"Validation samples in fold: {len(eval_idx)}") # Use eval_idx from the current loop
         # If classification, also check class distribution in fold
-        print(f"Validation class distribution: {np.bincount(y[val_index])}")
-        
+        print(f"Validation class distribution: {np.bincount(data[label_col].iloc[eval_idx])}")
+        # end changes
+                
         args.output_dir = os.path.join(output_dir_root, f'fold_{fold_id}')
         
         # Dataset
