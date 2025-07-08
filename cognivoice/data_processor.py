@@ -30,19 +30,38 @@ class TAUKADIALDataset(Dataset):
 
         self.args = args
         self.data = pd.read_csv('/content/drive/MyDrive/TAUKADIAL-24/train/groundtruth.csv')  #/data/datasets/TAUKADIAL-24/train/groundtruth.csv
+        print(f"Initial groundtruth.csv data shape: {self.data.shape}")
+        print(f"Initial groundtruth 'dx' distribution:\n{self.data['dx'].value_counts()}")
 
         disvoice = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24_feat/train/feats_train.parquet') #/data/datasets/TAUKADIAL-24/feature/feats_train.parquet
+        print(f"Disvoice features loaded shape: {disvoice.shape}")
+        
         for i in disvoice.columns:
             if i != 'filename':
                 disvoice[i+'_mean'] = disvoice[i].apply(np.mean).fillna(0)
 
         self.data = pd.merge(self.data, disvoice, left_on='tkdname', right_on='filename')
+        print(f"Shape after merging with disvoice: {self.data.shape}")
+        print(f"'dx' distribution after merging with disvoice:\n{self.data['dx'].value_counts()}")
 
         if subset is not None:
             self.data = self.data.iloc[subset]
+            print(f"Shape after applying subset: {self.data.shape}")
+            print(f"'dx' distribution after applying subset:\n{self.data['dx'].value_counts()}")
 
         self.data['audio'] = [load_wave(f'/content/drive/MyDrive/TAUKADIAL-24/train/{i}', sample_rate=self.args.sample_rate).flatten() for i in self.data.tkdname] #/data/datasets/TAUKADIAL-24/train/{i}
         self.feature_extractor = AutoFeatureExtractor.from_pretrained(self.args.method)
+
+        # Add check for empty audio
+        empty_audio_count = sum(1 for a in self.data['audio'] if a.numel() == 0)
+        print(f"Number of empty audio waveforms loaded: {empty_audio_count}")
+        if empty_audio_count > 0:
+            # You might want to remove these rows or handle them specifically
+            # For now, just identify them
+            empty_audio_tkdnames = self.data.loc[[a.numel() == 0 for a in self.data['audio']], 'tkdname'].tolist()
+            print(f"TKD names with empty audio: {empty_audio_tkdnames}")
+        empty_input_features_count = sum(1 for f in self.data['input_features'] if f.numel() == 0)
+        print(f"Number of empty input_features after extraction: {empty_input_features_count}")
 
         if 'whisper' in self.args.method:
             self.data['input_features'] = [
@@ -67,7 +86,14 @@ class TAUKADIALDataset(Dataset):
 
         # Transcribed text=
         text = pd.read_parquet('/content/drive/MyDrive/TAUKADIAL-24/translation_train.parquet') #/data/datasets/TAUKADIAL-24/transcription/translation_train.parquet
+        print(f"Text data loaded shape: {text.shape}")
         self.data = pd.merge(self.data, text, left_on='tkdname', right_on='file_name')
+        print(f"Shape after merging with text: {self.data.shape}")
+        print(f"'dx' distribution after merging with text:\n{self.data['dx'].value_counts()}")
+        
+        # Check for empty text features
+        empty_text_input_ids_count = sum(1 for iid in self.data['text_input_ids'] if not iid) # check if list/tensor is empty
+        print(f"Number of empty text input_ids after tokenization: {empty_text_input_ids_count}")
 
         text_feat = [
             self.en_tokenizer(j, padding='max_length', max_length=256, truncation=True) if i == 'en' else
